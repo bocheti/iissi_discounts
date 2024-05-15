@@ -4,7 +4,7 @@ import { StyleSheet, View, FlatList, ImageBackground, Image, Pressable } from 'r
 import { showMessage } from 'react-native-flash-message'
 import { MaterialCommunityIcons } from '@expo/vector-icons'
 import { getDetail } from '../../api/RestaurantEndpoints'
-import { remove } from '../../api/ProductEndpoints'
+import { remove, togglePromote } from '../../api/ProductEndpoints'
 import ImageCard from '../../components/ImageCard'
 import TextRegular from '../../components/TextRegular'
 import TextSemiBold from '../../components/TextSemibold'
@@ -60,12 +60,56 @@ export default function RestaurantDetailScreen ({ navigation, route }) {
         imageUri={item.image ? { uri: process.env.API_BASE_URL + '/' + item.image } : defaultProductImage}
         title={item.name}
       >
+        {restaurant.discount > 0 && item.promoted &&
+          <TextSemiBold textStyle={{ color: GlobalStyles.brandPrimary }}> ({restaurant.discount}% off) </TextSemiBold>
+        }
         <TextRegular numberOfLines={2}>{item.description}</TextRegular>
-        <TextSemiBold textStyle={styles.price}>{item.price.toFixed(2)}€</TextSemiBold>
+        <TextSemiBold textStyle={styles.price}>{item.price.toFixed(2)}€ {restaurant.discount > 0 && item.promoted &&
+          <TextSemiBold textStyle={{ color: GlobalStyles.brandPrimary }}> Price promoted: {item.price * (1 - restaurant.discount / 100) }€ </TextSemiBold>
+        }</TextSemiBold>
         {!item.availability &&
           <TextRegular textStyle={styles.availability }>Not available</TextRegular>
         }
          <View style={styles.actionButtonsContainer}>
+         {!item.promoted && <Pressable
+            onPress={() => {
+              toggle(item.id)
+            }}
+            style={({ pressed }) => [
+              {
+                backgroundColor: pressed
+                  ? 'limegreen'
+                  : 'lime'
+              },
+              styles.actionButton
+            ]}>
+          <View style={[{ flex: 1, flexDirection: 'row', justifyContent: 'center' }]}>
+            <MaterialCommunityIcons name='star-outline' color={'white'} size={20}/>
+            <TextRegular textStyle={styles.text}>
+              Promote
+            </TextRegular>
+          </View>
+        </Pressable>}
+
+        {item.promoted && <Pressable
+            onPress={() => {
+              toggle(item.id)
+            }}
+            style={({ pressed }) => [
+              {
+                backgroundColor: pressed
+                  ? 'limegreen'
+                  : 'lime'
+              },
+              styles.actionButton
+            ]}>
+          <View style={[{ flex: 1, flexDirection: 'row', justifyContent: 'center' }]}>
+            <MaterialCommunityIcons name='star' color={'white'} size={20}/>
+            <TextRegular textStyle={styles.text}>
+              Demote
+            </TextRegular>
+          </View>
+        </Pressable>}
           <Pressable
             onPress={() => navigation.navigate('EditProductScreen', { id: item.id })
             }
@@ -102,6 +146,7 @@ export default function RestaurantDetailScreen ({ navigation, route }) {
             </TextRegular>
           </View>
         </Pressable>
+
         </View>
       </ImageCard>
     )
@@ -122,6 +167,26 @@ export default function RestaurantDetailScreen ({ navigation, route }) {
     } catch (error) {
       showMessage({
         message: `There was an error while retrieving restaurant details (id ${route.params.id}). ${error}`,
+        type: 'error',
+        style: GlobalStyles.flashStyle,
+        titleStyle: GlobalStyles.flashTextStyle
+      })
+    }
+  }
+
+  const toggle = async (id) => {
+    try {
+      togglePromote(id)
+      showMessage({
+        message: `Product ${id} successfuly promoted/unpromoted.`,
+        type: 'success',
+        style: GlobalStyles.flashStyle,
+        titleStyle: GlobalStyles.flashTextStyle
+      })
+      navigation.navigate('RestaurantDetailScreen', { id: route.params.id, dirty: true, refresh: true })
+    } catch (error) {
+      showMessage({
+        message: `Product ${id} could not be promoted/unpromoted. ${error}`,
         type: 'error',
         style: GlobalStyles.flashStyle,
         titleStyle: GlobalStyles.flashTextStyle
@@ -237,7 +302,7 @@ const styles = StyleSheet.create({
     padding: 10,
     alignSelf: 'center',
     flexDirection: 'column',
-    width: '50%'
+    width: '33%'
   },
   actionButtonsContainer: {
     flexDirection: 'row',
